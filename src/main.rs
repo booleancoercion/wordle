@@ -4,6 +4,7 @@ use wordle::{Hint, LetterHint, Word};
 
 const NON_SOLUTIONS: &str = include_str!("../res/non_solutions.txt");
 const SOLUTIONS: &str = include_str!("../res/solutions.txt");
+const WORD_LENGTH: usize = 5;
 
 fn main() {
     println!("Welcome to Wordle!\nWould you like to play adverswordle or wordle_bot?");
@@ -29,13 +30,13 @@ fn adverswordle() {
 
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
-        let word: Word = input.trim().parse().unwrap();
+        let word: Word<WORD_LENGTH> = input.trim().parse().unwrap();
 
         let partitions = wordle::partition(&possibilities, word);
         let worst_partition = partitions
             .into_iter()
             .max_by_key(|x| {
-                if x.0.0 == [LetterHint::Green; 5] {
+                if x.0.0 == [LetterHint::Green; WORD_LENGTH] {
                     0
                 } else {
                     x.1.len()
@@ -69,7 +70,10 @@ fn wordle_bot() {
             break;
         }
 
-        let mut guesses: Vec<(Word, HashMap<Hint, Vec<Word>>)> = non_solutions
+        let mut guesses: Vec<(
+            Word<WORD_LENGTH>,
+            HashMap<Hint<WORD_LENGTH>, Vec<Word<WORD_LENGTH>>>,
+        )> = non_solutions
             .iter()
             .chain(solutions.iter())
             .map(|&guess| (guess, wordle::partition(&possibilities, guess)))
@@ -92,7 +96,7 @@ fn wordle_bot() {
         print!("Enter hint for best guess: ");
         std::io::stdout().flush().unwrap();
         let hint = {
-            let mut hint = [wordle::LetterHint::Black; wordle::WORD_LENGTH];
+            let mut hint = [wordle::LetterHint::Black; WORD_LENGTH];
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
             for (i, c) in input.trim().chars().enumerate() {
@@ -110,9 +114,17 @@ fn wordle_bot() {
     }
 }
 
-fn process_words() -> (Vec<Word>, Vec<Word>) {
+fn process_words() -> (Vec<Word<WORD_LENGTH>>, Vec<Word<WORD_LENGTH>>) {
     (
-        NON_SOLUTIONS.lines().map(|x| x.parse().unwrap()).collect(),
-        SOLUTIONS.lines().map(|x| x.parse().unwrap()).collect(),
+        NON_SOLUTIONS
+            .lines()
+            .filter(|x| x.len() == WORD_LENGTH)
+            .map(|x| x.parse().unwrap())
+            .collect(),
+        SOLUTIONS
+            .lines()
+            .filter(|x| x.len() == WORD_LENGTH)
+            .map(|x| x.parse().unwrap())
+            .collect(),
     )
 }

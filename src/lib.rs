@@ -5,8 +5,6 @@ use std::{
     str::FromStr,
 };
 
-pub const WORD_LENGTH: usize = 5;
-
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LetterHint {
     Green,
@@ -15,9 +13,9 @@ pub enum LetterHint {
 }
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Hint(pub [LetterHint; WORD_LENGTH]);
+pub struct Hint<const WORD_LENGTH: usize>(pub [LetterHint; WORD_LENGTH]);
 
-impl Display for Hint {
+impl<const WORD_LENGTH: usize> Display for Hint<WORD_LENGTH> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for &hint in &self.0 {
             let c = match hint {
@@ -31,7 +29,7 @@ impl Display for Hint {
     }
 }
 
-impl FromStr for Hint {
+impl<const WORD_LENGTH: usize> FromStr for Hint<WORD_LENGTH> {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -54,9 +52,9 @@ impl FromStr for Hint {
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Word([u8; WORD_LENGTH]);
+pub struct Word<const WORD_LENGTH: usize>([u8; WORD_LENGTH]);
 
-impl Display for Word {
+impl<const WORD_LENGTH: usize> Display for Word<WORD_LENGTH> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for &c in &self.0 {
             write!(f, "{}", c as char)?;
@@ -65,7 +63,7 @@ impl Display for Word {
     }
 }
 
-impl fmt::Debug for Word {
+impl<const WORD_LENGTH: usize> fmt::Debug for Word<WORD_LENGTH> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "\"")?;
         for &c in &self.0 {
@@ -76,7 +74,7 @@ impl fmt::Debug for Word {
     }
 }
 
-impl FromStr for Word {
+impl<const WORD_LENGTH: usize> FromStr for Word<WORD_LENGTH> {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -97,10 +95,9 @@ impl FromStr for Word {
 macro_rules! word {
     ($string:literal) => {{
         const _LEN: usize = $string.len();
-        const _: [(); _LEN] = [(); WORD_LENGTH];
         unsafe {
             Word(
-                <[::core::primitive::u8; WORD_LENGTH] as ::std::convert::TryFrom<
+                <[::core::primitive::u8; _LEN] as ::std::convert::TryFrom<
                     &[::core::primitive::u8],
                 >>::try_from(::core::primitive::str::as_bytes($string))
                 .unwrap_unchecked(),
@@ -109,8 +106,11 @@ macro_rules! word {
     }};
 }
 
-pub fn generate_hint(base_word: Word, guess: Word) -> Hint {
-    let mut hint = [LetterHint::Black; 5];
+pub fn generate_hint<const WORD_LENGTH: usize>(
+    base_word: Word<WORD_LENGTH>,
+    guess: Word<WORD_LENGTH>,
+) -> Hint<WORD_LENGTH> {
+    let mut hint = [LetterHint::Black; WORD_LENGTH];
 
     for (i, (x, y)) in base_word.0.iter().zip(guess.0.iter()).enumerate() {
         if x == y {
@@ -147,7 +147,10 @@ pub fn generate_hint(base_word: Word, guess: Word) -> Hint {
     Hint(hint)
 }
 
-pub fn partition(dictionary: &[Word], guess: Word) -> HashMap<Hint, Vec<Word>> {
+pub fn partition<const WORD_LENGTH: usize>(
+    dictionary: &[Word<WORD_LENGTH>],
+    guess: Word<WORD_LENGTH>,
+) -> HashMap<Hint<WORD_LENGTH>, Vec<Word<WORD_LENGTH>>> {
     let mut output = HashMap::new();
 
     for &word in dictionary {
