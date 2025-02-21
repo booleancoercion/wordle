@@ -8,15 +8,21 @@ const WORD_LENGTH: usize = 5;
 
 fn main() {
     println!("Welcome to Wordle!\nWould you like to play adverswordle or wordle_bot?");
-    print!("Enter your choice: ");
-    std::io::stdout().flush().unwrap();
+    loop {
+        print!("Enter your choice: ");
+        std::io::stdout().flush().unwrap();
 
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
-    match input.trim() {
-        "adverswordle" => adverswordle(),
-        "wordle_bot" => wordle_bot(),
-        _ => panic!("Invalid choice"),
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        match input.trim() {
+            "adverswordle" => adverswordle(),
+            "wordle_bot" => wordle_bot(),
+            _ => {
+                println!("Invalid choice. Please enter 'adverswordle' or 'wordle_bot'.\n");
+                continue;
+            }
+        };
+        break;
     }
 }
 
@@ -25,12 +31,18 @@ fn adverswordle() {
     possibilities.extend_from_slice(&solutions);
 
     loop {
-        print!("Enter your word: ");
-        std::io::stdout().flush().unwrap();
+        let word = loop {
+            print!("Enter your word: ");
+            std::io::stdout().flush().unwrap();
 
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let word: Word<WORD_LENGTH> = input.trim().parse().unwrap();
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input).unwrap();
+            let Ok(word) = input.trim().parse::<Word<WORD_LENGTH>>() else {
+                println!("Invalid word. Please enter a word of length 5.");
+                continue;
+            };
+            break word;
+        };
 
         let partitions = wordle::partition(&possibilities, word);
         let worst_partition = partitions
@@ -44,7 +56,7 @@ fn adverswordle() {
             })
             .unwrap();
         println!(
-            "Worst partition: {} ({} possibilities)",
+            "Worst partition: {} ({} possibilities)\n",
             worst_partition.0,
             worst_partition.1.len()
         );
@@ -64,7 +76,10 @@ fn wordle_bot() {
     let mut possibilities = solutions.clone();
     loop {
         if possibilities.is_empty() {
-            unreachable!("Somehow eliminated all of the words!")
+            println!(
+                "All of the words have been eliminated! Either one of the inputs is incorrect or the word is not in the dictionary."
+            );
+            break;
         } else if possibilities.len() == 1 {
             println!("The word is {}", possibilities[0]);
             break;
@@ -93,9 +108,12 @@ fn wordle_bot() {
             &guesses.last().unwrap().1.len()
         );
 
-        print!("Enter hint for best guess: ");
-        std::io::stdout().flush().unwrap();
-        let hint = {
+        let hint = 'outer: loop {
+            print!(
+                "Enter hint for best guess (G for green, Y for yellow, B for black, e.g. 'GBYBB'): "
+            );
+            std::io::stdout().flush().unwrap();
+
             let mut hint = [wordle::LetterHint::Black; WORD_LENGTH];
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
@@ -104,13 +122,17 @@ fn wordle_bot() {
                     'G' => wordle::LetterHint::Green,
                     'Y' => wordle::LetterHint::Yellow,
                     'B' => wordle::LetterHint::Black,
-                    _ => panic!("Invalid hint character"),
+                    _ => {
+                        println!("Invalid hint. Please use the correct format.");
+                        continue 'outer;
+                    }
                 };
             }
-            hint
+            break hint;
         };
 
         possibilities = guesses.pop().unwrap().1.remove(&Hint(hint)).unwrap();
+        println!();
     }
 }
 
