@@ -7,7 +7,7 @@ const SOLUTIONS: &str = include_str!("../res/solutions.txt");
 const WORD_LENGTH: usize = 5;
 
 fn main() {
-    println!("Welcome to Wordle!\nWould you like to play adverswordle or wordle_bot?");
+    println!("Welcome to Wordle!\nWhich games are we playing? (wordle/adverswordle)");
     loop {
         print!("Enter your choice: ");
         std::io::stdout().flush().unwrap();
@@ -16,9 +16,9 @@ fn main() {
         std::io::stdin().read_line(&mut input).unwrap();
         match input.trim() {
             "adverswordle" => adverswordle(),
-            "wordle_bot" => wordle_bot(),
+            "wordle" => wordle_bot(),
             _ => {
-                println!("Invalid choice. Please enter 'adverswordle' or 'wordle_bot'.\n");
+                println!("Invalid choice. Please enter 'adverswordle' or 'wordle'.\n");
                 continue;
             }
         };
