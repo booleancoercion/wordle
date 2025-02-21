@@ -95,17 +95,12 @@ fn wordle_bot() {
             .collect();
 
         guesses.sort_unstable_by_key(|x| x.1.len());
-
-        println!(
-            "Worst guess: {} ({} partitions)",
-            guesses[0].0,
-            &guesses[0].1.len()
-        );
+        let mut best_guess = guesses.pop().unwrap();
 
         println!(
             "Best guess: {} ({} partitions)",
-            guesses.last().unwrap().0,
-            &guesses.last().unwrap().1.len()
+            best_guess.0,
+            best_guess.1.len()
         );
 
         let hint = 'outer: loop {
@@ -114,24 +109,27 @@ fn wordle_bot() {
             );
             std::io::stdout().flush().unwrap();
 
-            let mut hint = [wordle::LetterHint::Black; WORD_LENGTH];
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
-            for (i, c) in input.trim().chars().enumerate() {
-                hint[i] = match c {
-                    'G' => wordle::LetterHint::Green,
-                    'Y' => wordle::LetterHint::Yellow,
-                    'B' => wordle::LetterHint::Black,
-                    _ => {
-                        println!("Invalid hint. Please use the correct format.");
-                        continue 'outer;
+            match input.trim().parse::<Hint<WORD_LENGTH>>() {
+                Ok(hint) => {
+                    if best_guess.1.contains_key(&hint) {
+                        break 'outer hint;
+                    } else {
+                        println!(
+                            "Invalid hint. This hint is inconsistent with the previous hints."
+                        );
+                        continue;
                     }
-                };
+                }
+                Err(_) => {
+                    println!("Invalid hint. Please enter a hint of length 5.");
+                    continue;
+                }
             }
-            break hint;
         };
 
-        possibilities = guesses.pop().unwrap().1.remove(&Hint(hint)).unwrap();
+        possibilities = best_guess.1.remove(&hint).unwrap();
         println!();
     }
 }
