@@ -1,27 +1,77 @@
 use std::{collections::HashMap, io::Write};
 
-use wordle::{Hint, Word};
+use wordle::{Hint, LetterHint, Word};
 
-const WORDS: &str = include_str!("../res/valid-wordle-words.txt");
+const NON_SOLUTIONS: &str = include_str!("../res/non_solutions.txt");
+const SOLUTIONS: &str = include_str!("../res/solutions.txt");
 
 fn main() {
-    let words = process_words();
+    println!("Welcome to Wordle!\nWould you like to play adverswordle or wordle_bot?");
+    print!("Enter your choice: ");
+    std::io::stdout().flush().unwrap();
 
-    let mut possibilities = words.clone();
-    // let mut current_hints: Vec<(Hint, Word)> = vec![];
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
+    match input.trim() {
+        "adverswordle" => adverswordle(),
+        "wordle_bot" => wordle_bot(),
+        _ => panic!("Invalid choice"),
+    }
+}
+
+fn adverswordle() {
+    let (mut possibilities, solutions) = process_words();
+    possibilities.extend_from_slice(&solutions);
+
+    loop {
+        print!("Enter your word: ");
+        std::io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        let word: Word = input.trim().parse().unwrap();
+
+        let partitions = wordle::partition(&possibilities, word);
+        let worst_partition = partitions
+            .into_iter()
+            .max_by_key(|x| {
+                if x.0.0 == [LetterHint::Green; 5] {
+                    0
+                } else {
+                    x.1.len()
+                }
+            })
+            .unwrap();
+        println!(
+            "Worst partition: {} ({} possibilities)",
+            worst_partition.0,
+            worst_partition.1.len()
+        );
+
+        possibilities = worst_partition.1;
+
+        if possibilities.len() == 1 {
+            println!("Game over. The word is {}", possibilities[0]);
+            break;
+        }
+    }
+}
+
+fn wordle_bot() {
+    let (non_solutions, solutions) = process_words();
+
+    let mut possibilities = solutions.clone();
     loop {
         if possibilities.is_empty() {
             unreachable!("Somehow eliminated all of the words!")
         } else if possibilities.len() == 1 {
-            println!(
-                "The word is {}",
-                String::from_utf8_lossy(&possibilities[0])
-            );
+            println!("The word is {}", possibilities[0]);
             break;
         }
 
-        let mut guesses: Vec<(Word, HashMap<Hint, Vec<Word>>)> = words
+        let mut guesses: Vec<(Word, HashMap<Hint, Vec<Word>>)> = non_solutions
             .iter()
+            .chain(solutions.iter())
             .map(|&guess| (guess, wordle::partition(&possibilities, guess)))
             .collect();
 
@@ -29,13 +79,13 @@ fn main() {
 
         println!(
             "Worst guess: {} ({} partitions)",
-            String::from_utf8_lossy(&guesses[0].0),
+            guesses[0].0,
             &guesses[0].1.len()
         );
 
         println!(
             "Best guess: {} ({} partitions)",
-            String::from_utf8_lossy(&guesses.last().unwrap().0),
+            guesses.last().unwrap().0,
             &guesses.last().unwrap().1.len()
         );
 
@@ -56,13 +106,13 @@ fn main() {
             hint
         };
 
-        possibilities = guesses.pop().unwrap().1.remove(&hint).unwrap();
+        possibilities = guesses.pop().unwrap().1.remove(&Hint(hint)).unwrap();
     }
 }
 
-fn process_words() -> Vec<Word> {
-    WORDS
-        .lines()
-        .map(|x| x.as_bytes().try_into().unwrap())
-        .collect()
+fn process_words() -> (Vec<Word>, Vec<Word>) {
+    (
+        NON_SOLUTIONS.lines().map(|x| x.parse().unwrap()).collect(),
+        SOLUTIONS.lines().map(|x| x.parse().unwrap()).collect(),
+    )
 }

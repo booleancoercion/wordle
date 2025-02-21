@@ -1,4 +1,9 @@
-use std::collections::HashMap;
+use core::fmt;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 pub const WORD_LENGTH: usize = 5;
 
@@ -9,9 +14,84 @@ pub enum LetterHint {
     Black,
 }
 
-pub type Hint = [LetterHint; WORD_LENGTH];
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Hint(pub [LetterHint; WORD_LENGTH]);
 
-pub type Word = [u8; WORD_LENGTH];
+impl Display for Hint {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        for &hint in &self.0 {
+            let c = match hint {
+                LetterHint::Green => 'G',
+                LetterHint::Yellow => 'Y',
+                LetterHint::Black => 'B',
+            };
+            write!(f, "{}", c)?;
+        }
+        Ok(())
+    }
+}
+
+impl FromStr for Hint {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != WORD_LENGTH {
+            return Err(());
+        }
+
+        let mut hint = [LetterHint::Black; WORD_LENGTH];
+        for (i, c) in s.to_ascii_uppercase().chars().enumerate() {
+            hint[i] = match c {
+                'G' => LetterHint::Green,
+                'Y' => LetterHint::Yellow,
+                'B' => LetterHint::Black,
+                _ => return Err(()),
+            };
+        }
+
+        Ok(Hint(hint))
+    }
+}
+
+#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Word([u8; WORD_LENGTH]);
+
+impl Display for Word {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        for &c in &self.0 {
+            write!(f, "{}", c as char)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Debug for Word {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "\"")?;
+        for &c in &self.0 {
+            write!(f, "{}", c as char)?;
+        }
+        write!(f, "\"")?;
+        Ok(())
+    }
+}
+
+impl FromStr for Word {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != WORD_LENGTH {
+            return Err(());
+        }
+
+        let mut word = [0; WORD_LENGTH];
+        for (i, c) in s.to_ascii_lowercase().chars().enumerate() {
+            word[i] = c as u8;
+        }
+
+        Ok(Word(word))
+    }
+}
 
 #[macro_export]
 macro_rules! word {
@@ -19,10 +99,12 @@ macro_rules! word {
         const _LEN: usize = $string.len();
         const _: [(); _LEN] = [(); WORD_LENGTH];
         unsafe {
-            <$crate::Word as ::std::convert::TryFrom<&[::core::primitive::u8]>>::try_from(
-                ::core::primitive::str::as_bytes($string),
+            Word(
+                <[::core::primitive::u8; WORD_LENGTH] as ::std::convert::TryFrom<
+                    &[::core::primitive::u8],
+                >>::try_from(::core::primitive::str::as_bytes($string))
+                .unwrap_unchecked(),
             )
-            .unwrap_unchecked()
         }
     }};
 }
@@ -30,27 +112,39 @@ macro_rules! word {
 pub fn generate_hint(base_word: Word, guess: Word) -> Hint {
     let mut hint = [LetterHint::Black; 5];
 
-    for (i, &l) in guess.iter().enumerate() {
-        if base_word[i] == l {
+    for (i, (x, y)) in base_word.0.iter().zip(guess.0.iter()).enumerate() {
+        if x == y {
             hint[i] = LetterHint::Green;
+        }
+    }
+
+    for (i, &l) in guess.0.iter().enumerate() {
+        if hint[i] != LetterHint::Black {
             continue;
         }
 
-        let count = base_word.into_iter().filter(|x| *x == l).count();
-        if count == 0 {
-            hint[i] = LetterHint::Black;
-        } else {
-            let guess_count_so_far = guess[..i].iter().filter(|x| **x == l).count();
-
-            if guess_count_so_far < count {
-                hint[i] = LetterHint::Yellow;
-            } else {
-                hint[i] = LetterHint::Black;
+        let count = base_word
+            .0
+            .iter()
+            .enumerate()
+            .filter(|&(i, &x)| x == l && hint[i] != LetterHint::Green)
+            .count();
+        let mut current_count = 0;
+        for (j, hint) in hint.iter_mut().enumerate() {
+            if guess.0[j] == l {
+                if *hint == LetterHint::Green {
+                    continue;
+                }
+                current_count += 1;
+                if current_count > count {
+                    break;
+                }
+                *hint = LetterHint::Yellow;
             }
         }
     }
 
-    hint
+    Hint(hint)
 }
 
 pub fn partition(dictionary: &[Word], guess: Word) -> HashMap<Hint, Vec<Word>> {
@@ -75,7 +169,7 @@ mod tests {
         let hint = generate_hint(word, guess);
 
         #[rustfmt::skip]
-        assert_eq!(hint, [LetterHint::Green, LetterHint::Green, LetterHint::Yellow, LetterHint::Black, LetterHint::Black]);
+        assert_eq!(hint.0, [LetterHint::Green, LetterHint::Green, LetterHint::Yellow, LetterHint::Black, LetterHint::Black]);
     }
 
     #[test]
@@ -85,7 +179,7 @@ mod tests {
         let hint = generate_hint(word, guess);
 
         #[rustfmt::skip]
-        assert_eq!(hint, [LetterHint::Yellow, LetterHint::Black, LetterHint::Green, LetterHint::Black, LetterHint::Black]);
+        assert_eq!(hint.0, [LetterHint::Yellow, LetterHint::Black, LetterHint::Green, LetterHint::Black, LetterHint::Black]);
     }
 
     #[test]
@@ -100,7 +194,7 @@ mod tests {
             word!("clove"),
         ];
 
-        let hints = guesses.map(|guess| generate_hint(word, guess));
+        let hints = guesses.map(|guess| generate_hint(word, guess).0);
         #[rustfmt::skip]
         assert_eq!(hints, [
             [LetterHint::Black, LetterHint::Yellow, LetterHint::Black, LetterHint::Black, LetterHint::Black],
@@ -110,5 +204,15 @@ mod tests {
             [LetterHint::Black, LetterHint::Yellow, LetterHint::Black, LetterHint::Yellow, LetterHint::Black],
             [LetterHint::Green, LetterHint::Green, LetterHint::Green, LetterHint::Green, LetterHint::Green],
         ]);
+    }
+
+    #[test]
+    fn generate_hint_multiples2() {
+        let word = word!("zooks");
+        let guess = word!("kooks");
+        let hint = generate_hint(word, guess);
+
+        #[rustfmt::skip]
+        assert_eq!(hint.0, [LetterHint::Black, LetterHint::Green, LetterHint::Green, LetterHint::Green, LetterHint::Green]);
     }
 }
