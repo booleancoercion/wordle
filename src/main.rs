@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Write};
+use std::{cmp::Reverse, collections::HashMap, io::Write};
 
 use wordle::{Hint, LetterHint, Word};
 
@@ -94,7 +94,7 @@ fn wordle_bot() {
             .map(|&guess| (guess, wordle::partition(&possibilities, guess)))
             .collect();
 
-        guesses.sort_unstable_by_key(|x| x.1.len());
+        guesses.sort_unstable_by_key(|x| (x.1.len(), Reverse(x.1.values().map(Vec::len).max().unwrap())));
         let mut best_guess = guesses.pop().unwrap();
 
         println!(
