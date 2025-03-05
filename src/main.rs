@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap, io::Write};
+use std::{collections::HashMap, io::Write};
 
 use wordle::{Hint, LetterHint, Word};
 
@@ -85,7 +85,7 @@ fn wordle_bot() {
             break;
         }
 
-        let mut guesses: Vec<(
+        let guesses: Vec<(
             Word<WORD_LENGTH>,
             HashMap<Hint<WORD_LENGTH>, Vec<Word<WORD_LENGTH>>>,
         )> = non_solutions
@@ -94,8 +94,7 @@ fn wordle_bot() {
             .map(|&guess| (guess, wordle::partition(&possibilities, guess)))
             .collect();
 
-        guesses.sort_unstable_by_key(|x| (x.1.len(), Reverse(x.1.values().map(Vec::len).max().unwrap())));
-        let mut best_guess = guesses.pop().unwrap();
+        let mut best_guess = guesses.into_iter().min_by_key(|x| (partition_score(&x.1), !possibilities.contains(&x.0))).unwrap();
 
         println!(
             "Best guess: {} ({} partitions)",
@@ -132,6 +131,10 @@ fn wordle_bot() {
         possibilities = best_guess.1.remove(&hint).unwrap();
         println!();
     }
+}
+
+fn partition_score(partition: &HashMap<Hint<WORD_LENGTH>, Vec<Word<WORD_LENGTH>>>) -> usize {
+    partition.values().map(|x| x.len().pow(2)).sum()
 }
 
 fn process_words() -> (Vec<Word<WORD_LENGTH>>, Vec<Word<WORD_LENGTH>>) {
